@@ -22,16 +22,40 @@ This is not just a flight search clone. The long-term product is a lightweight t
 4. Swap mock data for Duffel or another flight API later
 5. Add saved trips, booking, Stripe, and AI planning after the core experience feels good
 
-## Recommended Stack
+## Implemented Stack
 
-- Next.js
 - React
+- Vite
 - TypeScript
-- Tailwind CSS or carefully scoped CSS modules
+- Carefully scoped CSS
 - Postgres/Supabase later for users, searches, and bookings
 - Duffel later for flight search and booking
 - Stripe later for payments
 - OpenAI later for natural-language trip planning
+
+## Local Development
+
+```bash
+npm install
+npm run dev
+```
+
+The MVP currently runs with mock flight data. This keeps the product experience usable while the provider integrations are still being selected and credentialed.
+
+## Current Product Surface
+
+- Premium responsive flight search workspace
+- Airport autocomplete
+- Date, cabin, and traveler controls
+- Sort and stop filters
+- Price calendar strip
+- Flight offer list
+- Selected itinerary detail panel
+- Fare watchlist
+- Trips view
+- AI concierge prompt view
+- Group trip invite boundary
+- Booking request modal with provider/payment handoff notes
 
 ## Development Phases
 
