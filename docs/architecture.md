@@ -82,6 +82,24 @@ FlightProvider
 
 This keeps the UI from being tightly coupled to Duffel, Amadeus, or any single travel API.
 
+## Current MVP Implementation
+
+The repo now uses a Vite React frontend with local mock data:
+
+```txt
+src/App.tsx       Product UI, state, and workflow composition
+src/data.ts      Mock airports, price calendar, flight offers, saved trips
+src/types.ts     Shared product/domain types
+src/styles.css   Full responsive design system
+```
+
+The UI intentionally mirrors the eventual provider boundary:
+
+- Search state is structured like an API request
+- Offers use provider-style IDs and itinerary segments
+- Booking request flow stops before payment/order creation
+- Watchlist and trips views are ready for persistence
+
 ## Key Risks
 
 - Flight prices expire quickly
