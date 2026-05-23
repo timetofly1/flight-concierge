@@ -4,9 +4,9 @@ A premium flight search and booking assistant inspired by modern consumer travel
 
 The first build target is a working MVP:
 
-- Search flights by origin, destination, dates, cabin, and passengers
-- Show polished flight result cards
-- Open itinerary details in a focused drawer/modal
+- Search flights from a dark aviation command-center workspace
+- Show a live map-style route canvas with selectable fare cards
+- Open itinerary details in a focused concierge panel
 - Prepare the backend boundary for live flight APIs
 - Add booking, payments, accounts, and AI trip planning in later phases
 
@@ -44,12 +44,13 @@ The MVP currently runs with mock flight data. This keeps the product experience 
 
 ## Current Product Surface
 
-- Premium responsive flight search workspace
+- Dark aviation command-center UI inspired by modern flight tracking tools
+- Map-style route canvas with plane markers and route arc
+- Left-side product navigation for search, trips, watchlist, concierge, payments, and settings
 - Airport autocomplete
 - Date, cabin, and traveler controls
-- Sort and stop filters
-- Price calendar strip
-- Flight offer list
+- Compact search dock with airport swap
+- Bottom fare rail with selectable offers
 - Selected itinerary detail panel
 - Fare watchlist
 - Trips view
