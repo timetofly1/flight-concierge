@@ -1,26 +1,29 @@
 import { useMemo, useState } from "react";
 import {
-  ArrowRight,
+  ArrowRightLeft,
   Bell,
   CalendarDays,
   Check,
   ChevronDown,
-  CreditCard,
-  Filter,
   Gauge,
+  Globe2,
   Luggage,
+  Maximize2,
   Plane,
   Plus,
+  Radar,
   Search,
+  Settings,
   ShieldCheck,
   SlidersHorizontal,
   Sparkles,
   Star,
   Users,
   WalletCards,
+  X,
 } from "lucide-react";
-import { airports, flightOffers, priceCalendar, savedTrips } from "./data";
-import type { Airport, AppView, FlightOffer, SearchState, SortMode, StopFilter } from "./types";
+import { airports, flightOffers, savedTrips } from "./data";
+import type { Airport, AppView, FlightOffer, SearchState, SortMode } from "./types";
 
 const initialSearch: SearchState = {
   origin: airports[0],
@@ -33,16 +36,13 @@ const initialSearch: SearchState = {
 
 const money = (amount: number) => `$${amount.toLocaleString()}`;
 const duration = (minutes: number) => `${Math.floor(minutes / 60)}h ${minutes % 60}m`;
+const displayDateRange = (search: SearchState) => {
+  const depart = new Date(`${search.departDate}T00:00:00`);
+  const returning = new Date(`${search.returnDate}T00:00:00`);
+  return `${depart.toLocaleDateString("en-US", { month: "short", day: "numeric" })}-${returning.toLocaleDateString("en-US", { month: "short", day: "numeric" })}`;
+};
 
-function AirportPicker({
-  label,
-  value,
-  onChange,
-}: {
-  label: string;
-  value: Airport;
-  onChange: (airport: Airport) => void;
-}) {
+function AirportField({ label, value, onChange }: { label: string; value: Airport; onChange: (airport: Airport) => void }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const matches = airports.filter((airport) =>
@@ -50,14 +50,11 @@ function AirportPicker({
   );
 
   return (
-    <div className="field">
-      <label>{label}</label>
-      <button className="fieldButton" type="button" onClick={() => setOpen(!open)}>
-        <span>
-          <strong>{value.city}</strong>
-          <small>{value.code} - {value.name}</small>
-        </span>
-        <ChevronDown size={16} />
+    <div className="dockField">
+      <span>{label}</span>
+      <button type="button" onClick={() => setOpen(!open)}>
+        <b>{value.code}</b> <em>{value.city}</em>
+        <ChevronDown size={14} />
       </button>
       {open && (
         <div className="airportMenu">
@@ -72,7 +69,7 @@ function AirportPicker({
                 setQuery("");
               }}
             >
-              <b>{airport.code}</b>
+              <strong>{airport.code}</strong>
               <span>{airport.city}<small>{airport.name}</small></span>
             </button>
           ))}
@@ -82,159 +79,157 @@ function AirportPicker({
   );
 }
 
-function SearchBand({
-  search,
-  setSearch,
-  onSearch,
-}: {
-  search: SearchState;
-  setSearch: (search: SearchState) => void;
-  onSearch: () => void;
-}) {
+function Sidebar({ view, setView }: { view: AppView; setView: (view: AppView) => void }) {
+  const items = [
+    { id: "search" as const, label: "Search", icon: Search },
+    { id: "trips" as const, label: "Trips", icon: CalendarDays },
+    { id: "watchlist" as const, label: "Watchlist", icon: Star },
+    { id: "concierge" as const, label: "Concierge", icon: Sparkles },
+  ];
+
   return (
-    <section className="searchBand">
-      <div className="routePill">
-        <span><Plane size={17} /></span>
-        <div><small>Roundtrip search</small><strong>{search.origin.city} to {search.destination.city}</strong></div>
+    <aside className="sidebar">
+      <button className="brand" type="button" onClick={() => setView("search")}>
+        <span><Plane size={18} /></span>
+        Flight Concierge
+      </button>
+      <div className="sidebarSearch"><Search size={17} />Search routes</div>
+      <nav>
+        {items.map((item) => {
+          const Icon = item.icon;
+          return (
+            <button className={view === item.id ? "active" : ""} key={item.id} type="button" onClick={() => setView(item.id)}>
+              <Icon size={18} />
+              {item.label}
+            </button>
+          );
+        })}
+      </nav>
+      <div className="sidebarGroup">
+        <button type="button"><Radar size={18} />Price radar</button>
+        <button type="button"><WalletCards size={18} />Payments</button>
+        <button type="button"><Settings size={18} />Settings</button>
       </div>
-      <button className="lightBtn askBtn" type="button"><Sparkles size={16} />Ask concierge</button>
-      <div className="searchGrid">
-        <AirportPicker label="From" value={search.origin} onChange={(origin) => setSearch({ ...search, origin })} />
-        <AirportPicker label="To" value={search.destination} onChange={(destination) => setSearch({ ...search, destination })} />
-        <div className="field"><label>Depart</label><input type="date" value={search.departDate} onChange={(event) => setSearch({ ...search, departDate: event.target.value })} /></div>
-        <div className="field"><label>Return</label><input type="date" value={search.returnDate} onChange={(event) => setSearch({ ...search, returnDate: event.target.value })} /></div>
-        <div className="field">
-          <label>Cabin</label>
-          <select value={search.cabin} onChange={(event) => setSearch({ ...search, cabin: event.target.value as SearchState["cabin"] })}>
-            <option value="economy">Economy</option>
-            <option value="premium">Premium</option>
-            <option value="business">Business</option>
-          </select>
-        </div>
-        <div className="field"><label>Travelers</label><input min={1} max={8} type="number" value={search.travelers} onChange={(event) => setSearch({ ...search, travelers: Number(event.target.value) })} /></div>
-        <button className="darkBtn searchBtn" type="button" onClick={onSearch}><Search size={18} />Search flights</button>
+      <div className="member">
+        <span>SO</span>
+        <div><b>Sam Oliver</b><small>Premium member</small></div>
+        <ChevronDown size={14} />
+      </div>
+    </aside>
+  );
+}
+
+function SearchDock({ search, setSearch }: { search: SearchState; setSearch: (search: SearchState) => void }) {
+  return (
+    <section className="searchDock">
+      <AirportField label="From" value={search.origin} onChange={(origin) => setSearch({ ...search, origin })} />
+      <button className="swap" type="button" aria-label="Swap airports" onClick={() => setSearch({ ...search, origin: search.destination, destination: search.origin })}><ArrowRightLeft size={18} /></button>
+      <AirportField label="To" value={search.destination} onChange={(destination) => setSearch({ ...search, destination })} />
+      <div className="dockField"><span>Dates</span><button type="button"><b>{displayDateRange(search)}</b><ChevronDown size={14} /></button></div>
+      <div className="dockField"><span>Cabin</span><button type="button"><b>{search.cabin[0].toUpperCase() + search.cabin.slice(1)}</b><ChevronDown size={14} /></button></div>
+      <div className="dockField"><span>Travelers</span><button type="button"><b>{search.travelers} traveler</b><ChevronDown size={14} /></button></div>
+      <button className="modify" type="button">Modify search</button>
+    </section>
+  );
+}
+
+function MapCanvas({ selected }: { selected: FlightOffer }) {
+  return (
+    <section className="mapCanvas" aria-label="Route map">
+      <div className="mapLabels">
+        <span className="city sf">SAN FRANCISCO</span>
+        <span className="city la">LOS ANGELES</span>
+        <span className="city vegas">LAS VEGAS</span>
+        <span className="city phx">PHOENIX</span>
+      </div>
+      <svg className="routeSvg" viewBox="0 0 1000 620" preserveAspectRatio="none">
+        <path className="routeGhost" d="M300 430 C410 330 585 225 790 140" />
+        <path className="routeMain" d="M300 430 C410 330 585 225 790 140" />
+        <circle className="pin" cx="300" cy="430" r="8" />
+        <circle className="pin" cx="790" cy="140" r="8" />
+      </svg>
+      <div className="planeMarker primary"><Plane size={30} /></div>
+      <div className="planeMarker p1"><Plane size={24} /></div>
+      <div className="planeMarker p2"><Plane size={22} /></div>
+      <div className="planeMarker p3"><Plane size={26} /></div>
+      <div className="planeMarker p4"><Plane size={20} /></div>
+      <div className="routeTooltip">{duration(selected.durationMinutes)}<small>{selected.stopLabel}</small></div>
+      <div className="viewSelect"><SlidersHorizontal size={17} />Dark satellite<ChevronDown size={16} /></div>
+      <div className="mapTools">
+        <button type="button"><Plus size={20} /></button>
+        <button type="button">-</button>
+        <button type="button"><Maximize2 size={18} /></button>
+        <button type="button"><Globe2 size={18} /></button>
       </div>
     </section>
   );
 }
 
-function FlightCard({
-  offer,
-  selected,
-  watched,
-  onSelect,
-  onToggleWatch,
-}: {
-  offer: FlightOffer;
-  selected: boolean;
-  watched: boolean;
-  onSelect: () => void;
-  onToggleWatch: () => void;
-}) {
+function ItineraryPanel({ offer, watched, onWatch, onBook }: { offer: FlightOffer; watched: boolean; onWatch: () => void; onBook: () => void }) {
   return (
-    <article className={`flightCard ${selected ? "selected" : ""}`}>
-      <button className="flightMain" type="button" onClick={onSelect}>
-        <span className="mark" style={{ "--airline": offer.accent } as React.CSSProperties}>{offer.airlineCode}</span>
-        <span className="flightText">
-          <strong>{offer.airline}<small>{offer.fareType}</small></strong>
-          <span className="timeLine"><b>{offer.departTime}</b><i /><b>{offer.arriveTime}</b></span>
-          <small>{duration(offer.durationMinutes)} - {offer.stopLabel} - {offer.baggage}</small>
-        </span>
-        <span className="price"><b>{money(offer.price)}</b><small>{offer.previousPrice > offer.price ? `was ${money(offer.previousPrice)}` : "stable"}</small></span>
-      </button>
-      <div className="flightFoot">
-        <div>{offer.tags.map((tag) => <span key={tag}>{tag}</span>)}</div>
-        <button className={watched ? "watch on" : "watch"} type="button" onClick={onToggleWatch}><Bell size={16} />{watched ? "Watching" : "Watch"}</button>
+    <section className="itineraryPanel">
+      <div className="panelHead">
+        <div><small>Your itinerary</small><h2><span>{offer.airlineCode}</span>{offer.airline}</h2></div>
+        <em>Best balance</em>
       </div>
+      <div className="priceLine"><strong>{money(offer.price)}</strong><span>per traveler</span><button className={watched ? "watch on" : "watch"} type="button" onClick={onWatch}><Bell size={15} />{watched ? "Watching" : "Watch"}</button></div>
+      <div className="miniStats">
+        <div><small>Fare confidence</small><b>{offer.confidence}%</b><span>High</span></div>
+        <div><small>Price trend</small><b>Stable</b><span>7 days</span></div>
+        <div><small>You save</small><b>$42</b><span>vs other options</span></div>
+      </div>
+      <div className="legList">
+        <h3>Departure <span>Wed, May 21</span></h3>
+        <div><i /><b>{offer.departTime}<small>CLE</small></b><span>{offer.stopLabel}<small>{duration(offer.durationMinutes)}</small></span><b>{offer.arriveTime}<small>LAX</small></b></div>
+        <p>{offer.airline} {offer.segments[0]?.flight.replace(/[A-Z]+ /, "")} - {offer.baggage}</p>
+        <h3>Return <span>Fri, May 30</span></h3>
+        <div><i /><b>{offer.segments[1]?.depart ?? "2:15 PM"}<small>LAX</small></b><span>Nonstop<small>4h 19m</small></span><b>{offer.segments[1]?.arrive ?? "9:34 PM"}<small>CLE</small></b></div>
+      </div>
+      <button className="fareRules" type="button">View details and fare rules <ChevronDown size={15} /></button>
+      <div className="infoGrid">
+        <div><Luggage size={18} /><small>Baggage</small><b>{offer.baggage}</b></div>
+        <div><Gauge size={18} /><small>Carbon</small><b>{offer.carbon}</b></div>
+        <div><ShieldCheck size={18} /><small>Flexibility</small><b>{offer.changePolicy}</b></div>
+      </div>
+      <div className="groupBox"><Users size={18} /><p><b>Group trip</b>Invite friends or family to hold this itinerary.</p><button type="button">Invite collaborators</button></div>
+      <button className="bookBtn" type="button" onClick={onBook}><Plane size={16} />Request booking</button>
+      <p className="holdNote">We'll hold this fare and handle the booking for you.</p>
+    </section>
+  );
+}
+
+function OfferCard({ offer, selected, watched, onSelect, onWatch }: { offer: FlightOffer; selected: boolean; watched: boolean; onSelect: () => void; onWatch: () => void }) {
+  return (
+    <article className={`offerCard ${selected ? "selected" : ""}`}>
+      <button type="button" onClick={onSelect}>
+        <div className="offerTop"><span style={{ "--airline": offer.accent } as React.CSSProperties}>{offer.airlineCode}</span><b>{offer.airline}</b><strong>{money(offer.price)}<small>per traveler</small></strong></div>
+        <div className="offerRoute"><b>{offer.departTime}<small>CLE</small></b><i /><span>{offer.stopLabel}<small>{duration(offer.durationMinutes)}</small></span><i /><b>{offer.arriveTime}<small>LAX</small></b></div>
+        <div className="offerMeta"><em>{offer.confidence}% confidence</em><small>{offer.baggage}</small></div>
+      </button>
+      <button className={watched ? "selectDot on" : "selectDot"} type="button" onClick={onWatch}>{watched ? <Check size={15} /> : null}</button>
     </article>
   );
 }
 
-function DetailPanel({ offer, watched, onToggleWatch, onBook }: { offer: FlightOffer; watched: boolean; onToggleWatch: () => void; onBook: () => void }) {
+function FareDeck({ offers, selectedId, watchedIds, setSelectedId, toggleWatch }: { offers: FlightOffer[]; selectedId: string; watchedIds: string[]; setSelectedId: (id: string) => void; toggleWatch: (id: string) => void }) {
   return (
-    <aside className="detail">
-      <div className="detailHead">
-        <span className="mark big" style={{ "--airline": offer.accent } as React.CSSProperties}>{offer.airlineCode}</span>
-        <div><h2>{offer.airline} roundtrip</h2><p>{offer.route} - {offer.stopLabel}</p></div>
-        <b>{money(offer.price)}</b>
-      </div>
-      <div className="metrics">
-        <div><Gauge size={18} /><small>Fare confidence</small><b>{offer.confidence}%</b></div>
-        <div><Luggage size={18} /><small>Baggage</small><b>{offer.baggage}</b></div>
-        <div><ShieldCheck size={18} /><small>Policy</small><b>Review before booking</b></div>
-      </div>
-      <div className="timeline">
-        {offer.segments.map((segment) => (
-          <div key={segment.flight}><span /><p><b>{segment.from} to {segment.to}</b>{segment.depart} - {segment.arrive} - {segment.flight}</p></div>
-        ))}
-      </div>
-      <div className="insight"><Sparkles size={18} /><p><b>Concierge read</b>This is the cleanest balance of price and timing. Moving departure one day earlier could save about $42, but adds a connection for most fares.</p></div>
-      <div className="group"><Users size={18} /><p><b>Group trip</b>Invite friends to hold this itinerary in their own workspace.</p><button type="button"><Plus size={16} />Add traveler</button></div>
-      <div className="actions">
-        <button className="lightBtn" type="button" onClick={onToggleWatch}><Bell size={17} />{watched ? "Watching fare" : "Watch fare"}</button>
-        <button className="darkBtn" type="button" onClick={onBook}><CreditCard size={17} />Request booking</button>
-      </div>
-    </aside>
-  );
-}
-
-function Results({
-  offers,
-  selected,
-  selectedId,
-  setSelectedId,
-  sort,
-  setSort,
-  stops,
-  setStops,
-  watchedIds,
-  toggleWatch,
-  onBook,
-}: {
-  offers: FlightOffer[];
-  selected: FlightOffer;
-  selectedId: string;
-  setSelectedId: (id: string) => void;
-  sort: SortMode;
-  setSort: (sort: SortMode) => void;
-  stops: StopFilter;
-  setStops: (stops: StopFilter) => void;
-  watchedIds: string[];
-  toggleWatch: (id: string) => void;
-  onBook: () => void;
-}) {
-  return (
-    <section className="workspace">
-      <div className="toolbar">
-        <div><strong>{offers.length} live fares</strong><small>Updated just now from mock provider</small></div>
-        <div className="filters">
-          <label><SlidersHorizontal size={16} /><select value={sort} onChange={(event) => setSort(event.target.value as SortMode)}><option value="best">Best</option><option value="cheapest">Cheapest</option><option value="fastest">Fastest</option></select></label>
-          <label><Filter size={16} /><select value={stops} onChange={(event) => setStops(event.target.value as StopFilter)}><option value="any">Any stops</option><option value="nonstop">Nonstop</option><option value="one">1 stop max</option></select></label>
-        </div>
-      </div>
-      <div className="calendar">{priceCalendar.map((day) => <button className={day.tone} key={day.date} type="button"><span>{day.date}</span><b>{money(day.amount)}</b></button>)}</div>
-      <div className="resultsGrid">
-        <div className="list">
-          {offers.map((offer) => (
-            <FlightCard key={offer.id} offer={offer} selected={offer.id === selectedId} watched={watchedIds.includes(offer.id)} onSelect={() => setSelectedId(offer.id)} onToggleWatch={() => toggleWatch(offer.id)} />
-          ))}
-        </div>
-        <DetailPanel offer={selected} watched={watchedIds.includes(selected.id)} onToggleWatch={() => toggleWatch(selected.id)} onBook={onBook} />
-      </div>
+    <section className="fareDeck">
+      {offers.map((offer) => (
+        <OfferCard key={offer.id} offer={offer} selected={offer.id === selectedId} watched={watchedIds.includes(offer.id)} onSelect={() => setSelectedId(offer.id)} onWatch={() => toggleWatch(offer.id)} />
+      ))}
     </section>
   );
 }
 
-function ConciergePanel() {
-  return (
-    <aside className="side">
-      <h3><Sparkles size={18} />Concierge</h3>
-      <p className="chat">The best move is the nonstop United fare. It costs $42 more than the cheapest option but saves 2h 29m and avoids a tight Atlanta connection.</p>
-      <button type="button"><CalendarDays size={16} />Check one-day-earlier fares</button>
-      <button type="button"><WalletCards size={16} />Compare bag-inclusive fares</button>
-      <button type="button"><Sparkles size={16} />Draft group trip invite</button>
-    </aside>
-  );
+function PageOverlay({ view, watched }: { view: AppView; watched: FlightOffer[] }) {
+  if (view === "search") return null;
+  if (view === "trips") {
+    return <section className="pageOverlay"><h1>Trips</h1><p>Your saved searches and booking pipeline.</p>{savedTrips.map((trip) => <article key={trip.route}><b>{trip.route}</b><span>{trip.date}</span><em>{trip.status}</em><strong>{trip.price}</strong></article>)}</section>;
+  }
+  if (view === "watchlist") {
+    return <section className="pageOverlay"><h1>Watchlist</h1><p>Fares you are tracking from the search workspace.</p>{watched.length ? watched.map((offer) => <article key={offer.id}><b>{offer.airline}</b><span>{offer.route}</span><em>{offer.stopLabel}</em><strong>{money(offer.price)}</strong></article>) : <p>No watched fares yet.</p>}</section>;
+  }
+  return <section className="pageOverlay concierge"><h1>AI Concierge</h1><p>Ask for a cleaner route, cheaper dates, or a group trip summary.</p><textarea defaultValue="Find me the cleanest roundtrip from Cleveland to Los Angeles for May 21 to May 30. Avoid red-eyes, prefer nonstop, and tell me if moving by one day saves money." /><button className="bookBtn" type="button">Generate trip plan</button></section>;
 }
 
 function BookingModal({ offer, onClose }: { offer: FlightOffer; onClose: () => void }) {
@@ -242,72 +237,38 @@ function BookingModal({ offer, onClose }: { offer: FlightOffer; onClose: () => v
   return (
     <div className="modal" role="dialog" aria-modal="true">
       <div>
+        <button className="close" type="button" onClick={onClose}><X size={18} /></button>
         {done ? (
-          <>
-            <span className="success"><Check size={28} /></span>
-            <h2>Booking request staged</h2>
-            <p>The itinerary, traveler count, fare, and provider/payment handoff are captured. Duffel order creation and Stripe confirmation connect here in production.</p>
-            <button className="darkBtn full" type="button" onClick={onClose}>Back to workspace</button>
-          </>
+          <><span className="success"><Check size={28} /></span><h2>Booking request staged</h2><p>The itinerary, traveler count, fare, and provider/payment handoff are captured. Duffel order creation and Stripe confirmation connect here in production.</p><button className="bookBtn" type="button" onClick={onClose}>Back to map</button></>
         ) : (
-          <>
-            <h2>Request booking</h2>
-            <p>Review the selected fare before turning this mock request into a live provider booking.</p>
-            <div className="summary"><span>{offer.airline}</span><b>{money(offer.price)}</b><span>{offer.route}</span><b>{offer.stopLabel}</b></div>
-            <p className="checks"><Check size={15} /> Fare selected<br /><Check size={15} /> Payment boundary ready<br /><Check size={15} /> Provider order step mocked</p>
-            <div className="actions"><button className="lightBtn" type="button" onClick={onClose}>Cancel</button><button className="darkBtn" type="button" onClick={() => setDone(true)}>Stage request</button></div>
-          </>
+          <><h2>Request booking</h2><p>Review the selected fare before turning this mock request into a live provider booking.</p><div className="summary"><span>{offer.airline}</span><b>{money(offer.price)}</b><span>{offer.route}</span><b>{offer.stopLabel}</b></div><button className="bookBtn" type="button" onClick={() => setDone(true)}>Stage request</button></>
         )}
       </div>
     </div>
   );
 }
 
-function Header({ view, setView }: { view: AppView; setView: (view: AppView) => void }) {
-  const items: { id: AppView; label: string }[] = [
-    { id: "search", label: "Search" },
-    { id: "trips", label: "Trips" },
-    { id: "watchlist", label: "Watchlist" },
-    { id: "concierge", label: "Concierge" },
-  ];
-  return (
-    <header>
-      <button className="brand" type="button" onClick={() => setView("search")}><span><Plane size={18} /></span>Flight Concierge</button>
-      <nav>{items.map((item) => <button className={view === item.id ? "active" : ""} key={item.id} type="button" onClick={() => setView(item.id)}>{item.label}</button>)}</nav>
-      <button className="profile" type="button"><span>SO</span>Profile</button>
-    </header>
-  );
-}
-
 export function App() {
   const [view, setView] = useState<AppView>("search");
   const [search, setSearch] = useState(initialSearch);
-  const [sort, setSort] = useState<SortMode>("best");
-  const [stops, setStops] = useState<StopFilter>("any");
+  const [sort] = useState<SortMode>("best");
   const [selectedId, setSelectedId] = useState(flightOffers[0].id);
   const [watchedIds, setWatchedIds] = useState<string[]>([flightOffers[0].id]);
   const [booking, setBooking] = useState(false);
-  const offers = useMemo(() => {
-    const filtered = flightOffers.filter((offer) => stops === "any" || offer.stops === 0 || stops === "one");
-    return filtered.sort((a, b) => sort === "cheapest" ? a.price - b.price : sort === "fastest" ? a.durationMinutes - b.durationMinutes : b.confidence - a.confidence);
-  }, [sort, stops]);
-  const selected = offers.find((offer) => offer.id === selectedId) ?? offers[0] ?? flightOffers[0];
-  const toggleWatch = (id: string) => setWatchedIds((items) => items.includes(id) ? items.filter((item) => item !== id) : [...items, id]);
+  const offers = useMemo(() => [...flightOffers].sort((a, b) => sort === "cheapest" ? a.price - b.price : b.confidence - a.confidence), [sort]);
+  const selected = offers.find((offer) => offer.id === selectedId) ?? offers[0];
   const watched = flightOffers.filter((offer) => watchedIds.includes(offer.id));
+  const toggleWatch = (id: string) => setWatchedIds((items) => items.includes(id) ? items.filter((item) => item !== id) : [...items, id]);
 
   return (
-    <div>
-      <Header view={view} setView={setView} />
+    <div className="appShell">
+      <Sidebar view={view} setView={setView} />
       <main>
-        {view === "search" && (
-          <>
-            <SearchBand search={search} setSearch={setSearch} onSearch={() => setSelectedId(flightOffers[0].id)} />
-            <div className="layout"><Results offers={offers} selected={selected} selectedId={selected.id} setSelectedId={setSelectedId} sort={sort} setSort={setSort} stops={stops} setStops={setStops} watchedIds={watchedIds} toggleWatch={toggleWatch} onBook={() => setBooking(true)} /><ConciergePanel /></div>
-          </>
-        )}
-        {view === "trips" && <section className="page"><h1>Trips</h1><p>Your saved searches and booking pipeline.</p>{savedTrips.map((trip) => <article className="trip" key={trip.route}><b>{trip.route}</b><span>{trip.date}</span><em>{trip.status}</em><strong>{trip.price}</strong></article>)}</section>}
-        {view === "watchlist" && <section className="page"><h1>Watchlist</h1><p>Fares you are tracking from the search workspace.</p>{watched.length ? watched.map((offer) => <FlightCard key={offer.id} offer={offer} selected={false} watched onSelect={() => { setView("search"); setSelectedId(offer.id); }} onToggleWatch={() => toggleWatch(offer.id)} />) : <div className="empty"><Star size={22} /><b>No watched fares yet</b><p>Save a fare from search to monitor price movement.</p></div>}</section>}
-        {view === "concierge" && <section className="page"><h1>AI Concierge</h1><p>Natural-language planning surface for the next build phase.</p><div className="prompt"><Sparkles size={22} /><textarea defaultValue="Find me the cleanest roundtrip from Cleveland to Los Angeles for May 21 to May 30. Avoid red-eyes, prefer nonstop, and tell me if moving by one day saves money." /><button className="darkBtn" type="button">Generate trip plan<ArrowRight size={17} /></button></div></section>}
+        <MapCanvas selected={selected} />
+        <SearchDock search={search} setSearch={setSearch} />
+        <ItineraryPanel offer={selected} watched={watchedIds.includes(selected.id)} onWatch={() => toggleWatch(selected.id)} onBook={() => setBooking(true)} />
+        <FareDeck offers={offers} selectedId={selected.id} watchedIds={watchedIds} setSelectedId={setSelectedId} toggleWatch={toggleWatch} />
+        <PageOverlay view={view} watched={watched} />
       </main>
       {booking && <BookingModal offer={selected} onClose={() => setBooking(false)} />}
     </div>
