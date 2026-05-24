@@ -27,6 +27,7 @@ This is not just a flight search clone. The long-term product is a lightweight t
 - React
 - Vite
 - TypeScript
+- MapLibre GL with dark OpenStreetMap/CARTO raster tiles
 - Carefully scoped CSS
 - Postgres/Supabase later for users, searches, and bookings
 - Duffel later for flight search and booking
@@ -45,7 +46,7 @@ The MVP currently runs with mock flight data. This keeps the product experience 
 ## Current Product Surface
 
 - Dark aviation command-center UI inspired by modern flight tracking tools
-- Map-style route canvas with plane markers and route arc
+- Real dark map canvas with route line, airport labels, and aircraft markers
 - Left-side product navigation for search, trips, watchlist, concierge, payments, and settings
 - Airport autocomplete
 - Date, cabin, and traveler controls
