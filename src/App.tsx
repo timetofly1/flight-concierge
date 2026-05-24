@@ -1,4 +1,6 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import maplibregl from "maplibre-gl";
+import "maplibre-gl/dist/maplibre-gl.css";
 import {
   ArrowRightLeft,
   Bell,
@@ -36,11 +38,44 @@ const initialSearch: SearchState = {
 
 const money = (amount: number) => `$${amount.toLocaleString()}`;
 const duration = (minutes: number) => `${Math.floor(minutes / 60)}h ${minutes % 60}m`;
+const airportCoordinates: Record<string, [number, number]> = {
+  CLE: [-81.8498, 41.4117],
+  LAX: [-118.4085, 33.9416],
+  JFK: [-73.7781, 40.6413],
+  SFO: [-122.379, 37.6213],
+  ORD: [-87.9073, 41.9742],
+  ATL: [-84.4277, 33.6407],
+  MIA: [-80.287, 25.7959],
+  SEA: [-122.3088, 47.4502],
+};
+
 const displayDateRange = (search: SearchState) => {
   const depart = new Date(`${search.departDate}T00:00:00`);
   const returning = new Date(`${search.returnDate}T00:00:00`);
   return `${depart.toLocaleDateString("en-US", { month: "short", day: "numeric" })}-${returning.toLocaleDateString("en-US", { month: "short", day: "numeric" })}`;
 };
+
+const routeCurve = (from: [number, number], to: [number, number]) =>
+  Array.from({ length: 56 }, (_, index) => {
+    const t = index / 55;
+    const lon = from[0] + (to[0] - from[0]) * t;
+    const lat = from[1] + (to[1] - from[1]) * t + Math.sin(Math.PI * t) * 4.8;
+    return [lon, lat];
+  });
+
+function makePlaneMarker(className = "") {
+  const marker = document.createElement("div");
+  marker.className = `mapPlaneMarker ${className}`;
+  marker.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17.8 19.2 16 11l3.5-3.5c1-.9 1-2.5 0-3.4-.9-1-2.5-1-3.4 0L12.5 7.6 4.3 5.8 3 7.1l6.6 3.3-3.5 3.5-2.1-.4-1 1 3.7 2.8 2.8 3.7 1-1-.4-2.1 3.5-3.5 3.3 6.6Z"/></svg>';
+  return marker;
+}
+
+function makeAirportLabel(code: string) {
+  const label = document.createElement("div");
+  label.className = "mapAirportLabel";
+  label.textContent = code;
+  return label;
+}
 
 function AirportField({ label, value, onChange }: { label: string; value: Airport; onChange: (airport: Airport) => void }) {
   const [open, setOpen] = useState(false);
@@ -133,26 +168,135 @@ function SearchDock({ search, setSearch }: { search: SearchState; setSearch: (se
   );
 }
 
-function MapCanvas({ selected }: { selected: FlightOffer }) {
+function MapCanvas({ selected, search }: { selected: FlightOffer; search: SearchState }) {
+  const mapContainer = useRef<HTMLDivElement | null>(null);
+  const mapRef = useRef<maplibregl.Map | null>(null);
+  const markerRef = useRef<maplibregl.Marker[]>([]);
+
+  useEffect(() => {
+    if (!mapContainer.current || mapRef.current) return;
+
+    mapRef.current = new maplibregl.Map({
+      attributionControl: false,
+      container: mapContainer.current,
+      center: [-96.5, 39.2],
+      zoom: 3.6,
+      minZoom: 2.4,
+      maxZoom: 9,
+      style: {
+        version: 8,
+        sources: {
+          cartoDark: {
+            type: "raster",
+            tiles: [
+              "https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png",
+              "https://b.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png",
+              "https://c.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png",
+            ],
+            tileSize: 256,
+            attribution: "OpenStreetMap contributors, CARTO",
+          },
+        },
+        layers: [{ id: "carto-dark", type: "raster", source: "cartoDark", paint: { "raster-opacity": 0.92 } }],
+      },
+    });
+
+    return () => {
+      markerRef.current.forEach((marker) => marker.remove());
+      markerRef.current = [];
+      mapRef.current?.remove();
+      mapRef.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    const origin = airportCoordinates[search.origin.code] ?? airportCoordinates.CLE;
+    const destination = airportCoordinates[search.destination.code] ?? airportCoordinates.LAX;
+    const route = routeCurve(origin, destination);
+    const routeData: GeoJSON.Feature<GeoJSON.LineString> = {
+      type: "Feature",
+      properties: {},
+      geometry: { type: "LineString", coordinates: route },
+    };
+
+    const renderRoute = () => {
+      markerRef.current.forEach((marker) => marker.remove());
+      markerRef.current = [];
+
+      const source = map.getSource("active-route") as maplibregl.GeoJSONSource | undefined;
+      if (source) {
+        source.setData(routeData);
+      } else {
+        map.addSource("active-route", { type: "geojson", data: routeData });
+        map.addLayer({
+          id: "active-route-halo",
+          type: "line",
+          source: "active-route",
+          paint: { "line-color": "#071321", "line-opacity": 0.75, "line-width": 7 },
+        });
+        map.addLayer({
+          id: "active-route-line",
+          type: "line",
+          source: "active-route",
+          paint: { "line-color": "#4d83ff", "line-opacity": 0.95, "line-width": 3.4 },
+        });
+      }
+
+      const terminalData: GeoJSON.FeatureCollection<GeoJSON.Point> = {
+        type: "FeatureCollection",
+        features: [
+          { type: "Feature", properties: { code: search.origin.code }, geometry: { type: "Point", coordinates: origin } },
+          { type: "Feature", properties: { code: search.destination.code }, geometry: { type: "Point", coordinates: destination } },
+        ],
+      };
+      const terminals = map.getSource("terminals") as maplibregl.GeoJSONSource | undefined;
+      if (terminals) {
+        terminals.setData(terminalData);
+      } else {
+        map.addSource("terminals", { type: "geojson", data: terminalData });
+        map.addLayer({
+          id: "terminal-rings",
+          type: "circle",
+          source: "terminals",
+          paint: {
+            "circle-color": "#06101a",
+            "circle-radius": 7,
+            "circle-stroke-color": "#cfe2ff",
+            "circle-stroke-width": 3,
+          },
+        });
+      }
+
+      const originLabel = new maplibregl.Marker({ element: makeAirportLabel(search.origin.code), anchor: "bottom", offset: [0, -12] }).setLngLat(origin).addTo(map);
+      const destinationLabel = new maplibregl.Marker({ element: makeAirportLabel(search.destination.code), anchor: "bottom", offset: [0, -12] }).setLngLat(destination).addTo(map);
+      const flightPoint = route[Math.round(route.length * 0.6)] as [number, number];
+      const activePlane = new maplibregl.Marker({ element: makePlaneMarker("active") }).setLngLat(flightPoint).addTo(map);
+      const traffic = [
+        new maplibregl.Marker({ element: makePlaneMarker() }).setLngLat([-104.6, 36.4]).addTo(map),
+        new maplibregl.Marker({ element: makePlaneMarker("small") }).setLngLat([-96.1, 33.4]).addTo(map),
+        new maplibregl.Marker({ element: makePlaneMarker("small") }).setLngLat([-111.8, 39.3]).addTo(map),
+        new maplibregl.Marker({ element: makePlaneMarker("dim") }).setLngLat([-88.8, 37.8]).addTo(map),
+      ];
+      markerRef.current = [originLabel, destinationLabel, activePlane, ...traffic];
+
+      const bounds = new maplibregl.LngLatBounds(origin, origin).extend(destination);
+      map.fitBounds(bounds, {
+        padding: { left: 420, right: 210, top: 150, bottom: 235 },
+        duration: 700,
+        maxZoom: 4.8,
+      });
+    };
+
+    if (map.loaded()) renderRoute();
+    else map.once("load", renderRoute);
+  }, [search.destination.code, search.origin.code, selected.id]);
+
   return (
     <section className="mapCanvas" aria-label="Route map">
-      <div className="mapLabels">
-        <span className="city sf">SAN FRANCISCO</span>
-        <span className="city la">LOS ANGELES</span>
-        <span className="city vegas">LAS VEGAS</span>
-        <span className="city phx">PHOENIX</span>
-      </div>
-      <svg className="routeSvg" viewBox="0 0 1000 620" preserveAspectRatio="none">
-        <path className="routeGhost" d="M300 430 C410 330 585 225 790 140" />
-        <path className="routeMain" d="M300 430 C410 330 585 225 790 140" />
-        <circle className="pin" cx="300" cy="430" r="8" />
-        <circle className="pin" cx="790" cy="140" r="8" />
-      </svg>
-      <div className="planeMarker primary"><Plane size={30} /></div>
-      <div className="planeMarker p1"><Plane size={24} /></div>
-      <div className="planeMarker p2"><Plane size={22} /></div>
-      <div className="planeMarker p3"><Plane size={26} /></div>
-      <div className="planeMarker p4"><Plane size={20} /></div>
+      <div ref={mapContainer} className="mapRoot" />
+      <div className="mapShade" />
       <div className="routeTooltip">{duration(selected.durationMinutes)}<small>{selected.stopLabel}</small></div>
       <div className="viewSelect"><SlidersHorizontal size={17} />Dark satellite<ChevronDown size={16} /></div>
       <div className="mapTools">
@@ -264,7 +408,7 @@ export function App() {
     <div className="appShell">
       <Sidebar view={view} setView={setView} />
       <main>
-        <MapCanvas selected={selected} />
+        <MapCanvas selected={selected} search={search} />
         <SearchDock search={search} setSearch={setSearch} />
         <ItineraryPanel offer={selected} watched={watchedIds.includes(selected.id)} onWatch={() => toggleWatch(selected.id)} onBook={() => setBooking(true)} />
         <FareDeck offers={offers} selectedId={selected.id} watchedIds={watchedIds} setSelectedId={setSelectedId} toggleWatch={toggleWatch} />
